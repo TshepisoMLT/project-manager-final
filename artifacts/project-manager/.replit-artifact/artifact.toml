@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Project Manager"
+description = "A focused project and task management app for freelancers and small teams, with project planning, Kanban workflows, task context, due-date reminders, and reusable templates."
+version = "1.0.0"
+id = "artifacts/project-manager"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18497
+
+[services.development]
+run = "pnpm --filter @workspace/project-manager run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/project-manager", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/project-manager/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18497"
+BASE_PATH = "/"
