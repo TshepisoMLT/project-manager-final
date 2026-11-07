@@ -3,13 +3,23 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Project Manager API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: workspace
+    description: Workspace, people, projects, and tasks
+  - name: planning
+    description: Milestones, labels, saved views, and templates
+  - name: collaboration
+    description: Notifications, invitations, and client reviews
+  - name: storage
+    description: Private task attachments
+  - name: calendar
+    description: Calendar export and Google Calendar sync
 paths:
   /healthz:
     get:
@@ -24,13 +34,1225 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /workspace:
+    get:
+      operationId: getWorkspace
+      tags: [workspace]
+      summary: Load the signed-in user's workspace
+      responses:
+        "200":
+          description: Workspace and all planning data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceSnapshot"
+  /workspace/import:
+    post:
+      operationId: importWorkspace
+      tags: [workspace]
+      summary: Safely import an existing browser workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceImport"
+      responses:
+        "200":
+          description: Import completed or was already applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+  /workload:
+    get:
+      operationId: getWorkload
+      tags: [workspace]
+      summary: Get task counts for workspace members
+      responses:
+        "200":
+          description: Workload by member
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkloadMember"
+  /projects:
+    post:
+      operationId: createProject
+      tags: [workspace]
+      summary: Create a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+  /projects/{projectId}:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: updateProject
+      tags: [workspace]
+      summary: Update or archive a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectUpdate"
+      responses:
+        "200":
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    delete:
+      operationId: deleteProject
+      tags: [workspace]
+      summary: Delete a project and its tasks
+      responses:
+        "204":
+          description: Project deleted
+  /projects/{projectId}/milestones:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: createMilestone
+      tags: [planning]
+      summary: Add a project milestone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MilestoneInput"
+      responses:
+        "201":
+          description: Milestone created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Milestone"
+  /milestones/{milestoneId}:
+    parameters:
+      - name: milestoneId
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: updateMilestone
+      tags: [planning]
+      summary: Update a milestone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MilestoneUpdate"
+      responses:
+        "200":
+          description: Milestone updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Milestone"
+    delete:
+      operationId: deleteMilestone
+      tags: [planning]
+      summary: Delete a milestone
+      responses:
+        "204":
+          description: Milestone deleted
+  /projects/{projectId}/share-link:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: createProjectShareLink
+      tags: [collaboration]
+      summary: Create a private client review link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShareLinkInput"
+      responses:
+        "201":
+          description: Review link created; the token is shown only once
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShareLink"
+    delete:
+      operationId: revokeProjectShareLink
+      tags: [collaboration]
+      summary: Revoke the current client review link
+      responses:
+        "204":
+          description: Review link revoked
+  /tasks:
+    post:
+      operationId: createTask
+      tags: [workspace]
+      summary: Create a task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskInput"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+  /tasks/{taskId}:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: updateTask
+      tags: [workspace]
+      summary: Update task details
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdate"
+      responses:
+        "200":
+          description: Task updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+    delete:
+      operationId: deleteTask
+      tags: [workspace]
+      summary: Delete a task
+      responses:
+        "204":
+          description: Task deleted
+  /tasks/bulk:
+    patch:
+      operationId: bulkUpdateTasks
+      tags: [workspace]
+      summary: Update multiple tasks at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkTaskUpdate"
+      responses:
+        "200":
+          description: Number of tasks updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkUpdateResult"
+  /tasks/{taskId}/comments:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: createTaskComment
+      tags: [collaboration]
+      summary: Comment on a task and notify mentioned members
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommentInput"
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskComment"
+  /tasks/{taskId}/checklist:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema: { type: string }
+    put:
+      operationId: updateTaskChecklist
+      tags: [workspace]
+      summary: Replace a task checklist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChecklistInput"
+      responses:
+        "200":
+          description: Updated checklist
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChecklistItem"
+  /tasks/{taskId}/dependencies:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema: { type: string }
+    put:
+      operationId: updateTaskDependencies
+      tags: [planning]
+      summary: Replace task dependencies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DependenciesInput"
+      responses:
+        "200":
+          description: Updated dependency task IDs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dependencies"
+  /tasks/{taskId}/labels:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema: { type: string }
+    put:
+      operationId: updateTaskLabels
+      tags: [planning]
+      summary: Replace a task's labels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskLabelsInput"
+      responses:
+        "200":
+          description: Updated label IDs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskLabels"
+  /labels:
+    post:
+      operationId: createLabel
+      tags: [planning]
+      summary: Create a workspace label
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LabelInput"
+      responses:
+        "201":
+          description: Label created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Label"
+  /labels/{labelId}:
+    parameters:
+      - name: labelId
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      operationId: deleteLabel
+      tags: [planning]
+      summary: Delete a label
+      responses:
+        "204":
+          description: Label deleted
+  /views:
+    post:
+      operationId: createSavedView
+      tags: [planning]
+      summary: Save a task filter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedViewInput"
+      responses:
+        "201":
+          description: Saved view created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedView"
+  /views/{viewId}:
+    parameters:
+      - name: viewId
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: updateSavedView
+      tags: [planning]
+      summary: Rename or update a saved view
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedViewUpdate"
+      responses:
+        "200":
+          description: Saved view updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedView"
+    delete:
+      operationId: deleteSavedView
+      tags: [planning]
+      summary: Delete a saved view
+      responses:
+        "204":
+          description: Saved view deleted
+  /templates:
+    post:
+      operationId: createTemplate
+      tags: [planning]
+      summary: Save a project as a reusable template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateInput"
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectTemplate"
+  /templates/{templateId}:
+    parameters:
+      - name: templateId
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      operationId: deleteTemplate
+      tags: [planning]
+      summary: Delete a custom template
+      responses:
+        "204":
+          description: Template deleted
+  /templates/{templateId}/apply:
+    parameters:
+      - name: templateId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: applyTemplate
+      tags: [planning]
+      summary: Create a project from a template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyTemplateInput"
+      responses:
+        "201":
+          description: Project created from the template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+  /notifications/{notificationId}:
+    parameters:
+      - name: notificationId
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: updateNotification
+      tags: [collaboration]
+      summary: Mark or dismiss a notification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationUpdate"
+      responses:
+        "200":
+          description: Notification updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+  /invitations:
+    post:
+      operationId: createInvitation
+      tags: [collaboration]
+      summary: Invite a teammate to the workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvitationInput"
+      responses:
+        "201":
+          description: Invitation link created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+  /invitations/{token}/accept:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: acceptInvitation
+      tags: [collaboration]
+      summary: Accept a workspace invitation
+      responses:
+        "200":
+          description: Membership created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceMember"
+  /public-reviews/{token}:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getPublicReview
+      tags: [collaboration]
+      summary: View a limited client review page
+      responses:
+        "200":
+          description: Shared project and milestones
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicReview"
+  /public-reviews/{token}/approvals:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: submitPublicApproval
+      tags: [collaboration]
+      summary: Approve a milestone or request changes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalInput"
+      responses:
+        "201":
+          description: Review decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a private file upload URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Upload URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+  /tasks/{taskId}/attachments:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: createAttachment
+      tags: [storage]
+      summary: Attach an uploaded file to a task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttachmentInput"
+      responses:
+        "201":
+          description: Attachment recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attachment"
+  /attachments/{attachmentId}:
+    parameters:
+      - name: attachmentId
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      operationId: deleteAttachment
+      tags: [storage]
+      summary: Remove an attachment from a task
+      responses:
+        "204":
+          description: Attachment removed
+  /storage/objects/{objectPath}:
+    parameters:
+      - name: objectPath
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getStorageObject
+      tags: [storage]
+      summary: Serve a private task attachment
+      responses:
+        "200":
+          description: File content
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+  /calendar/calendars:
+    get:
+      operationId: getCalendarList
+      tags: [calendar]
+      summary: List calendars available to the connected Google account
+      responses:
+        "200":
+          description: Calendar choices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Calendar"
+  /calendar/sync:
+    post:
+      operationId: syncCalendar
+      tags: [calendar]
+      summary: Sync due tasks and milestones to Google Calendar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarSyncInput"
+      responses:
+        "200":
+          description: Calendar sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarSyncResult"
+  /calendar/ics:
+    get:
+      operationId: exportCalendarIcs
+      tags: [calendar]
+      summary: Download workspace deadlines as an iCalendar file
+      responses:
+        "200":
+          description: iCalendar file
+          content:
+            text/calendar:
+              schema: { type: string }
 components:
   schemas:
     HealthStatus:
       type: object
       properties:
-        status:
-          type: string
-      required:
-        - status
+        status: { type: string }
+      required: [status]
+    UserProfile:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        name: { type: string }
+        imageUrl: { type: ["string", "null"] }
+      required: [id, email, name, imageUrl]
+    Workspace:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+      required: [id, name]
+    WorkspaceMember:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string }
+        imageUrl: { type: ["string", "null"] }
+        role: { type: string, enum: [owner, admin, member] }
+      required: [id, name, email, imageUrl, role]
+    Project:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        archived: { type: boolean }
+        clientName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, name, description, archived, clientName, createdAt, updatedAt]
+    ProjectInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 140 }
+        description: { type: string }
+        clientName: { type: ["string", "null"] }
+      required: [name, description]
+    ProjectUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 140 }
+        description: { type: string }
+        archived: { type: boolean }
+        clientName: { type: ["string", "null"] }
+    ChecklistItem:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        done: { type: boolean }
+      required: [id, title, done]
+    TaskComment:
+      type: object
+      properties:
+        id: { type: string }
+        taskId: { type: string }
+        authorId: { type: string }
+        authorName: { type: string }
+        body: { type: string }
+        mentions:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, taskId, authorId, authorName, body, mentions, createdAt]
+    CommentInput:
+      type: object
+      properties:
+        body: { type: string, minLength: 1, maxLength: 4000 }
+        mentions:
+          type: array
+          items: { type: string }
+      required: [body]
+    Activity:
+      type: object
+      properties:
+        id: { type: string }
+        actorId: { type: ["string", "null"] }
+        actorName: { type: string }
+        action: { type: string }
+        detail: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, actorId, actorName, action, detail, createdAt]
+    Attachment:
+      type: object
+      properties:
+        id: { type: string }
+        taskId: { type: string }
+        name: { type: string }
+        contentType: { type: string }
+        size: { type: integer }
+        objectPath: { type: string }
+        url: { type: string }
+        uploadedAt: { type: string, format: date-time }
+      required: [id, taskId, name, contentType, size, objectPath, url, uploadedAt]
+    Task:
+      type: object
+      properties:
+        id: { type: string }
+        projectId: { type: string }
+        title: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [todo, in_progress, review, done] }
+        priority: { type: string, enum: [low, medium, high] }
+        assigneeId: { type: ["string", "null"] }
+        assigneeName: { type: ["string", "null"] }
+        dueDate: { type: ["string", "null"], format: date }
+        recurrenceInterval: { type: ["integer", "null"], minimum: 1, maximum: 365 }
+        recurrenceUnit: { type: ["string", "null"], enum: [day, week, month, null] }
+        labelIds:
+          type: array
+          items: { type: string }
+        dependencyIds:
+          type: array
+          items: { type: string }
+        checklist:
+          type: array
+          items: { $ref: "#/components/schemas/ChecklistItem" }
+        comments:
+          type: array
+          items: { $ref: "#/components/schemas/TaskComment" }
+        activity:
+          type: array
+          items: { $ref: "#/components/schemas/Activity" }
+        attachments:
+          type: array
+          items: { $ref: "#/components/schemas/Attachment" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, projectId, title, description, status, priority, assigneeId, assigneeName, dueDate, recurrenceInterval, recurrenceUnit, labelIds, dependencyIds, checklist, comments, activity, attachments, createdAt, updatedAt]
+    TaskInput:
+      type: object
+      properties:
+        projectId: { type: string }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string }
+        status: { type: string, enum: [todo, in_progress, review, done] }
+        priority: { type: string, enum: [low, medium, high] }
+        assigneeId: { type: ["string", "null"] }
+        dueDate: { type: ["string", "null"], format: date }
+        recurrenceInterval: { type: ["integer", "null"], minimum: 1, maximum: 365 }
+        recurrenceUnit: { type: ["string", "null"], enum: [day, week, month, null] }
+      required: [projectId, title]
+    TaskUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string }
+        status: { type: string, enum: [todo, in_progress, review, done] }
+        priority: { type: string, enum: [low, medium, high] }
+        assigneeId: { type: ["string", "null"] }
+        dueDate: { type: ["string", "null"], format: date }
+        recurrenceInterval: { type: ["integer", "null"], minimum: 1, maximum: 365 }
+        recurrenceUnit: { type: ["string", "null"], enum: [day, week, month, null] }
+    BulkTaskUpdate:
+      type: object
+      properties:
+        taskIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { type: string }
+        status: { type: string, enum: [todo, in_progress, review, done] }
+        priority: { type: string, enum: [low, medium, high] }
+        assigneeId: { type: ["string", "null"] }
+        dueDate: { type: ["string", "null"], format: date }
+      required: [taskIds]
+    BulkUpdateResult:
+      type: object
+      properties:
+        updatedCount: { type: integer }
+      required: [updatedCount]
+    ChecklistInput:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ChecklistItem" }
+      required: [items]
+    DependenciesInput:
+      type: object
+      properties:
+        taskIds:
+          type: array
+          items: { type: string }
+      required: [taskIds]
+    Dependencies:
+      type: object
+      properties:
+        taskIds:
+          type: array
+          items: { type: string }
+      required: [taskIds]
+    Label:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        color: { type: string }
+      required: [id, name, color]
+    LabelInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 48 }
+        color: { type: string, pattern: "^#[0-9A-Fa-f]{6}$" }
+      required: [name, color]
+    TaskLabelsInput:
+      type: object
+      properties:
+        labelIds:
+          type: array
+          items: { type: string }
+      required: [labelIds]
+    TaskLabels:
+      type: object
+      properties:
+        labelIds:
+          type: array
+          items: { type: string }
+      required: [labelIds]
+    SavedViewFilters:
+      type: object
+      properties:
+        statuses:
+          type: array
+          items: { type: string, enum: [todo, in_progress, review, done] }
+        priorities:
+          type: array
+          items: { type: string, enum: [low, medium, high] }
+        assigneeId: { type: ["string", "null"] }
+        labelIds:
+          type: array
+          items: { type: string }
+        search: { type: string }
+        dueBefore: { type: ["string", "null"], format: date }
+    SavedView:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        filters: { $ref: "#/components/schemas/SavedViewFilters" }
+      required: [id, name, filters]
+    SavedViewInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        filters: { $ref: "#/components/schemas/SavedViewFilters" }
+      required: [name, filters]
+    SavedViewUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        filters: { $ref: "#/components/schemas/SavedViewFilters" }
+    TemplateTask:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string }
+        priority: { type: string, enum: [low, medium, high] }
+        dueDaysFromStart: { type: integer }
+      required: [title, description, priority, dueDaysFromStart]
+    ProjectTemplate:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        builtin: { type: boolean }
+        tasks:
+          type: array
+          items: { $ref: "#/components/schemas/TemplateTask" }
+      required: [id, name, description, builtin, tasks]
+    TemplateInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        description: { type: string }
+        sourceProjectId: { type: string }
+      required: [name, description, sourceProjectId]
+    ApplyTemplateInput:
+      type: object
+      properties:
+        projectName: { type: string, minLength: 1, maxLength: 140 }
+        description: { type: string }
+        startDate: { type: string, format: date }
+      required: [projectName, description, startDate]
+    Milestone:
+      type: object
+      properties:
+        id: { type: string }
+        projectId: { type: string }
+        title: { type: string }
+        description: { type: string }
+        dueDate: { type: ["string", "null"], format: date }
+        status: { type: string, enum: [planned, in_progress, complete] }
+        approvalStatus: { type: ["string", "null"], enum: [pending, approved, changes_requested, null] }
+      required: [id, projectId, title, description, dueDate, status, approvalStatus]
+    MilestoneInput:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 160 }
+        description: { type: string }
+        dueDate: { type: ["string", "null"], format: date }
+      required: [title, description]
+    MilestoneUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 160 }
+        description: { type: string }
+        dueDate: { type: ["string", "null"], format: date }
+        status: { type: string, enum: [planned, in_progress, complete] }
+    Notification:
+      type: object
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [assignment, mention, due_soon, overdue, approval] }
+        message: { type: string }
+        projectId: { type: ["string", "null"] }
+        taskId: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        read: { type: boolean }
+        dismissed: { type: boolean }
+      required: [id, kind, message, projectId, taskId, createdAt, read, dismissed]
+    NotificationUpdate:
+      type: object
+      properties:
+        read: { type: boolean }
+        dismissed: { type: boolean }
+    ShareLinkInput:
+      type: object
+      properties:
+        clientName: { type: ["string", "null"] }
+        expiresInDays: { type: integer, minimum: 1, maximum: 90, default: 30 }
+      required: [expiresInDays]
+    ShareLink:
+      type: object
+      properties:
+        token: { type: string }
+        clientName: { type: ["string", "null"] }
+        expiresAt: { type: string, format: date-time }
+      required: [token, clientName, expiresAt]
+    PublicReview:
+      type: object
+      properties:
+        project: { $ref: "#/components/schemas/Project" }
+        milestones:
+          type: array
+          items: { $ref: "#/components/schemas/Milestone" }
+        approvals:
+          type: array
+          items: { $ref: "#/components/schemas/Approval" }
+        clientName: { type: ["string", "null"] }
+      required: [project, milestones, approvals, clientName]
+    ApprovalInput:
+      type: object
+      properties:
+        milestoneId: { type: string }
+        decision: { type: string, enum: [approved, changes_requested] }
+        comment: { type: string, maxLength: 2000 }
+      required: [milestoneId, decision]
+    Approval:
+      type: object
+      properties:
+        id: { type: string }
+        milestoneId: { type: string }
+        decision: { type: string, enum: [approved, changes_requested] }
+        comment: { type: string }
+        clientName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+      required: [id, milestoneId, decision, comment, clientName, createdAt]
+    InvitationInput:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        role: { type: string, enum: [admin, member] }
+      required: [email, role]
+    Invitation:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        role: { type: string, enum: [admin, member] }
+        token: { type: string }
+        expiresAt: { type: string, format: date-time }
+      required: [email, role, token, expiresAt]
+    WorkloadMember:
+      type: object
+      properties:
+        member: { $ref: "#/components/schemas/WorkspaceMember" }
+        openTasks: { type: integer }
+        overdueTasks: { type: integer }
+        dueSoonTasks: { type: integer }
+      required: [member, openTasks, overdueTasks, dueSoonTasks]
+    WorkspaceSnapshot:
+      type: object
+      properties:
+        user: { $ref: "#/components/schemas/UserProfile" }
+        workspace: { $ref: "#/components/schemas/Workspace" }
+        members:
+          type: array
+          items: { $ref: "#/components/schemas/WorkspaceMember" }
+        projects:
+          type: array
+          items: { $ref: "#/components/schemas/Project" }
+        tasks:
+          type: array
+          items: { $ref: "#/components/schemas/Task" }
+        labels:
+          type: array
+          items: { $ref: "#/components/schemas/Label" }
+        views:
+          type: array
+          items: { $ref: "#/components/schemas/SavedView" }
+        templates:
+          type: array
+          items: { $ref: "#/components/schemas/ProjectTemplate" }
+        milestones:
+          type: array
+          items: { $ref: "#/components/schemas/Milestone" }
+        notifications:
+          type: array
+          items: { $ref: "#/components/schemas/Notification" }
+        approvals:
+          type: array
+          items: { $ref: "#/components/schemas/Approval" }
+      required: [user, workspace, members, projects, tasks, labels, views, templates, milestones, notifications, approvals]
+    WorkspaceImportProject:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        archived: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, description, archived, createdAt]
+    WorkspaceImportTask:
+      type: object
+      properties:
+        id: { type: string }
+        projectId: { type: string }
+        title: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [todo, in_progress, review, done] }
+        priority: { type: string, enum: [low, medium, high] }
+        assignee: { type: string }
+        dueDate: { type: ["string", "null"], format: date }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        checklist:
+          type: array
+          items: { $ref: "#/components/schemas/ChecklistItem" }
+        comments:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              author: { type: string }
+              body: { type: string }
+              createdAt: { type: string, format: date-time }
+            required: [id, author, body, createdAt]
+        activity:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              action: { type: string }
+              detail: { type: string }
+              createdAt: { type: string, format: date-time }
+            required: [id, action, detail, createdAt]
+      required: [id, projectId, title, description, status, priority, assignee, dueDate, createdAt, updatedAt, checklist, comments, activity]
+    WorkspaceImport:
+      type: object
+      properties:
+        sourceId: { type: string, minLength: 1, maxLength: 200 }
+        projects:
+          type: array
+          maxItems: 500
+          items: { $ref: "#/components/schemas/WorkspaceImportProject" }
+        tasks:
+          type: array
+          maxItems: 5000
+          items: { $ref: "#/components/schemas/WorkspaceImportTask" }
+      required: [sourceId, projects, tasks]
+    ImportResult:
+      type: object
+      properties:
+        importedProjects: { type: integer }
+        importedTasks: { type: integer }
+        alreadyImported: { type: boolean }
+      required: [importedProjects, importedTasks, alreadyImported]
+    UploadUrlRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 240 }
+        size: { type: integer, minimum: 1, maximum: 25000000 }
+        contentType: { type: string, minLength: 1 }
+      required: [name, size, contentType]
+    UploadUrlResponse:
+      type: object
+      properties:
+        uploadURL: { type: string, format: uri }
+        objectPath: { type: string }
+      required: [uploadURL, objectPath]
+    AttachmentInput:
+      type: object
+      properties:
+        name: { type: string }
+        contentType: { type: string }
+        size: { type: integer, minimum: 1, maximum: 25000000 }
+        objectPath: { type: string }
+      required: [name, contentType, size, objectPath]
+    Calendar:
+      type: object
+      properties:
+        id: { type: string }
+        summary: { type: string }
+        primary: { type: boolean }
+        accessRole: { type: string }
+      required: [id, summary, primary, accessRole]
+    CalendarSyncInput:
+      type: object
+      properties:
+        calendarId: { type: string, minLength: 1 }
+      required: [calendarId]
+    CalendarSyncResult:
+      type: object
+      properties:
+        syncedCount: { type: integer }
+        skippedCount: { type: integer }
+        calendarName: { type: string }
+      required: [syncedCount, skippedCount, calendarName]
 
